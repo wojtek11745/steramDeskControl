@@ -6,20 +6,24 @@ from utils import map_range
 valid_ids = ["ESP32_784c28004f8c"]
 esp_manager = ESPManager(valid_ids)
 audio = AudioController()
-
+CATEGORIES = {
+    "media": ["discord.exe", "firefox.exe",],
+}
 last_scan = 0
 last_scan2 = 0
 esp_serials = {}
-pot_values = [audio.get_volume(), 0, 0, 0]
+pot_values = [audio.master.get_volume(), 100, 0, 0]
 ignore_system_update = False
 volumeOld = 0
-masterVolumeOld = 0
+systenVolumeOld = 0
+mediaVolumeOld = 0
 while True:
     now = time.time()
     esp_manager.check_new_port()
 
     if now - last_scan > 1:
         esp_manager.remove_disconnected_ports()
+        audio.mixer.refresh_sessions()
         last_scan = now
 
     events  = esp_manager.read_data()
@@ -27,7 +31,7 @@ while True:
         if event.get("type") == "device_confirmed":
             print("Nowe urządzenie potwierdzone!")
 
-            current_volume = audio.get_volume()
+            current_volume = audio.master.get_volume()
             esp_manager.send_volume(current_volume)
         elif "data" in event:
             data = event["data"]
@@ -40,29 +44,36 @@ while True:
 
 
     # ustawienie głośności
-    masterVolume = audio.get_volume()
-    
+    systemVolume = audio.master.get_volume()
+
     if now - last_scan2 > 0.3:
-        if(audio.device_change()):
-            esp_manager.send_volume(masterVolume)
+        if(audio.master.device_change()):
+            esp_manager.send_volume(systemVolume)
         last_scan2 = now
 
     volume_value = round(map_range(pot_values[0], 0, 1023, 0.0, 1.0), 2)
 
     if volume_value != volumeOld:
-        audio.set_volume(volume_value)
+        audio.master.set_volume(volume_value)
         volumeOld = volume_value
         ignore_system_update = True
-        print(f"- Muted: {bool(audio.is_muted())}")
-        print(f"- Volume: {audio.get_volume_percent()}%")
+        print(f"- Muted: {bool(audio.master.is_muted())}")
+        print(f"- Volume: {audio.master.get_volume_percent()}%")
 
     
 
-    if abs(masterVolumeOld - masterVolume) >= 0.01:
+    if abs(systenVolumeOld - systemVolume) >= 0.01:
         if not ignore_system_update:
-            esp_manager.send_volume(masterVolume)
+            esp_manager.send_volume(systemVolume)
         else:
             ignore_system_update = False
 
-    masterVolumeOld = masterVolume
+    systenVolumeOld = systemVolume
+
+
+    mediaVolume = round(map_range(pot_values[1], 0, 1023, 0.0, 1.0), 2)
+    if abs(mediaVolumeOld - mediaVolume) >= 0.01:
+        audio.mixer.set_category_volume(CATEGORIES["media"], mediaVolume)
+    mediaVolumeOld = mediaVolume
+    
     time.sleep(0.01)
