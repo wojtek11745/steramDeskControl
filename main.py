@@ -8,7 +8,11 @@ esp_manager = ESPManager(valid_ids)
 audio = AudioController()
 CATEGORIES = {
     "media": ["discord.exe", "firefox.exe",],
+    "game": [],
 }
+with open("game.txt", "r", encoding="utf-8") as plik:
+    CATEGORIES["game"] = [line.strip() for line in plik if line.strip()]
+
 last_scan = 0
 last_scan2 = 0
 esp_serials = {}
@@ -17,11 +21,12 @@ ignore_system_update = False
 volumeOld = 0
 systenVolumeOld = 0
 mediaVolumeOld = 0
+gameVolumeOld = 0
 while True:
     now = time.time()
     esp_manager.check_new_port()
 
-    if now - last_scan > 1:
+    if now - last_scan > 0.5:
         esp_manager.remove_disconnected_ports()
         audio.mixer.refresh_sessions()
         last_scan = now
@@ -75,5 +80,10 @@ while True:
     if abs(mediaVolumeOld - mediaVolume) >= 0.01:
         audio.mixer.set_category_volume(CATEGORIES["media"], mediaVolume)
     mediaVolumeOld = mediaVolume
-    
+
+    gameVolume = round(map_range(pot_values[2], 0, 1023, 0.0, 1.0), 2)
+    if abs(gameVolumeOld - gameVolume) >= 0.01:
+        audio.mixer.set_category_volume(CATEGORIES["game"], gameVolume)
+    gameVolumeOld = gameVolume
+
     time.sleep(0.01)
