@@ -1,4 +1,6 @@
 import time
+import os
+import threading
 from esp import ESPManager  
 from audio import AudioController
 from utils import map_range
@@ -10,8 +12,21 @@ CATEGORIES = {
     "media": ["discord.exe", "firefox.exe",],
     "game": [],
 }
-with open("game.txt", "r", encoding="utf-8") as plik:
+script_dir = os.path.dirname(os.path.abspath(__file__))
+game_file_path = os.path.join(script_dir, "game.txt")
+
+with open(game_file_path, "r", encoding="utf-8") as plik:
     CATEGORIES["game"] = [line.strip() for line in plik if line.strip()]
+
+user_command = ""
+def read_input():
+    global user_command
+    while True:
+        text = input()
+        if text.strip():
+            user_command = text.strip()
+
+threading.Thread(target=read_input, daemon=True).start()
 
 last_scan = 0
 last_scan2 = 0
@@ -22,9 +37,64 @@ volumeOld = 0
 systenVolumeOld = 0
 mediaVolumeOld = 0
 gameVolumeOld = 0
+
+adding_state = None
+not_known_apps = []
+selected_app = None
+
 while True:
     now = time.time()
     esp_manager.check_new_port()
+
+    if user_command:
+
+        reset = False
+        text = user_command
+        user_command = ""
+        if text == "add.game" and adding_state is None:
+            running_apps = audio.get_apps();
+            known_apps = {exe.lower() for exe in sum(CATEGORIES.values(), [])}
+            not_known_apps =  list(running_apps - known_apps)
+
+            if not not_known_apps:
+                print("lack applications to add")
+            else:
+                for index, app in enumerate(not_known_apps, start=1):
+                    print(f"[{index}] {app}")
+                print("choose app to add")
+                adding_state = "selection_app_to_add"
+        elif adding_state == "selection_app_to_add":
+            if text.isdigit():
+                num = int(text) - 1
+                if 0 <= num < len(not_known_apps):
+                    selected_app = not_known_apps[num]
+                    print(f"you choose {selected_app} add it to game section Y/N")
+                    adding_state = "confirmation"
+                else:
+                    print(f"invalid number. choose number between 1 to {len(not_known_apps)}")
+            else:
+                print("invalid commadn")
+                reset = True
+
+        elif(adding_state == "confirmation"):
+            if text.lower() in ["yes", "y"]:
+                CATEGORIES["game"].append(selected_app)
+                with open(game_file_path, "a", encoding="utf-8") as file:
+                    file.write(f"\n{selected_app}")
+                    print(f"{selected_app} been added to game")
+            elif text.lower() in ["no", "n"]:
+                print("return to main menu")
+                reset = True
+
+        else:
+            print("invalid commadn")
+            reset = True
+
+        if reset:
+            adding_state = None
+            not_known_apps = []
+            selected_app = None
+
 
     if now - last_scan > 0.5:
         esp_manager.remove_disconnected_ports()
