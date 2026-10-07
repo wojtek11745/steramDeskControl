@@ -60,7 +60,6 @@ class AppMixerController:
         self.sessions = new
 
 
-
     def set_app_volume(self, process_name: str, volume: float):
         volume = max(0.0, min(1.0, volume))
         process_name = process_name.lower()
@@ -82,10 +81,25 @@ class AppMixerController:
             self.set_app_volume(app, volume)
 
 
+
 class AudioController:
     def __init__(self):
         self.master = MasterVolumeController()
         self.mixer = AppMixerController()
 
 
+    def get_apps(self):
+        sessions = AudioUtilities.GetAllSessions()
+        apps = set()
 
+        for session in sessions:
+            # Filtrujemy tylko sesje powiązane z procesami użytkownika
+            if session.Process is not None:
+                try:
+                    exe_name = session.Process.name()
+                    apps.add(exe_name.lower())
+                except Exception:
+                    # Ignorujemy procesy, do których nie mamy dostępu (np. zamknięte w międzyczasie)
+                    pass
+
+        return(apps)
