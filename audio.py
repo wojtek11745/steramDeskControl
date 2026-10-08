@@ -44,6 +44,7 @@ class AppMixerController:
     def __init__(self):
         self.sessions = {}
         self.refresh_sessions()
+        self.last_category_volume = {}
 
     def refresh_sessions(self):
         new = {}
@@ -74,11 +75,16 @@ class AppMixerController:
                     pass
             self.sessions[process_name] = valid_sessions
 
-    def set_category_volume(self, category_apps: list[str], volume: float):
+    def set_category_volume(self, category_name: str, category_apps: list[str], volume: float):
+
         volume = max(0.0, min(1.0, volume))
 
-        for app in category_apps:
-            self.set_app_volume(app, volume)
+        last_volume = self.last_category_volume.get(category_name)
+
+        if last_volume is None or abs(last_volume - volume) >= 0.01:
+            for app in category_apps:
+                self.set_app_volume(app, volume)
+        self.last_category_volume[category_name] = volume
 
 
 

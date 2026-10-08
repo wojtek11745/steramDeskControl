@@ -34,9 +34,7 @@ esp_serials = {}
 pot_values = [audio.master.get_volume(), 100, 0, 0]
 ignore_system_update = False
 volumeOld = 0
-systenVolumeOld = 0
-mediaVolumeOld = 0
-gameVolumeOld = 0
+systemVolumeOld = 0
 
 adding_state = None
 not_known_apps = []
@@ -58,12 +56,15 @@ while True:
 
             if not not_known_apps:
                 print("lack applications to add")
+
             else:
                 for index, app in enumerate(not_known_apps, start=1):
                     print(f"[{index}] {app}")
                 print("choose app to add")
                 adding_state = "selection_app_to_add"
+
         elif adding_state == "selection_app_to_add":
+
             if text.isdigit():
                 num = int(text) - 1
                 if 0 <= num < len(not_known_apps):
@@ -77,11 +78,13 @@ while True:
                 reset = True
 
         elif(adding_state == "confirmation"):
+
             if text.lower() in ["yes", "y"]:
                 CATEGORIES["game"].append(selected_app)
                 with open(game_file_path, "a", encoding="utf-8") as file:
-                    file.write(f"\n{selected_app}")
+                    file.write(f"\n{selected_app}\n")
                     print(f"{selected_app} been added to game")
+                    reset = True
             elif text.lower() in ["no", "n"]:
                 print("return to main menu")
                 reset = True
@@ -115,10 +118,8 @@ while True:
                 value = data["v"]
                 pot_values[pot_id] = value
                 print(f"Pot {pot_id} -> {value}")
-    # odczyt danych z ESP32
 
 
-    # ustawienie głośności
     systemVolume = audio.master.get_volume()
 
     if now - last_scan2 > 0.3:
@@ -135,25 +136,19 @@ while True:
         print(f"- Muted: {bool(audio.master.is_muted())}")
         print(f"- Volume: {audio.master.get_volume_percent()}%")
 
-    
-
-    if abs(systenVolumeOld - systemVolume) >= 0.01:
+    if abs(systemVolumeOld - systemVolume) >= 0.01:
         if not ignore_system_update:
             esp_manager.send_volume(systemVolume)
         else:
             ignore_system_update = False
 
-    systenVolumeOld = systemVolume
+    systemVolumeOld = systemVolume
 
 
     mediaVolume = round(map_range(pot_values[1], 0, 1023, 0.0, 1.0), 2)
-    if abs(mediaVolumeOld - mediaVolume) >= 0.01:
-        audio.mixer.set_category_volume(CATEGORIES["media"], mediaVolume)
-    mediaVolumeOld = mediaVolume
+    audio.mixer.set_category_volume("media", CATEGORIES["media"], mediaVolume)
 
     gameVolume = round(map_range(pot_values[2], 0, 1023, 0.0, 1.0), 2)
-    if abs(gameVolumeOld - gameVolume) >= 0.01:
-        audio.mixer.set_category_volume(CATEGORIES["game"], gameVolume)
-    gameVolumeOld = gameVolume
+    audio.mixer.set_category_volume("game", CATEGORIES["game"], gameVolume)
 
     time.sleep(0.01)
