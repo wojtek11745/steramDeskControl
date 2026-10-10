@@ -103,8 +103,8 @@ class ESPManager:
 
 
     def send_volume(self, volume):
-        x = round(map_range(volume, 0, 1.0, 0.0, 1023))
         volume = max(0.0, min(1.0, volume))
+        x = round(map_range(volume, 0, 1.0, 0.0, 1023))
         message = f"FADER;0;SET;{x}\n"
         for port, info in self.esp_serials.items():
             if info["confirmed"]:
