@@ -39,65 +39,93 @@ systemVolumeOld = 0
 adding_state = None
 not_known_apps = []
 selected_app = None
+category_name = None
+
+def check_category_name(CATEGORIES, text):
+    category_name = text[4:]
+
+    if category_name in CATEGORIES:
+        return category_name
+        
+    print("invalid category name")
+    return None
+
+def retrieval_unknown_apps(running_apps, cat):
+    known_apps = {exe.lower() for exe in sum(cat.values(), [])}
+    not_known_apps =  list(running_apps - known_apps)
+
+    if not not_known_apps:
+        print("lack applications to add")
+        return [], None
+
+    for index, app in enumerate(not_known_apps, start=1):
+        print(f"[{index}] {app}")
+    print("choose app to add")
+    return not_known_apps, "selection_app_to_add"
+
+def choose_from(number, items):
+    if 0 <= number < len(items):
+        return items[number]
+    
+    print(f"invalid number. choose number between 1 to {len(items)}")
+    return None
+
+def add_to_file_list_txt(file_name, location, item):
+    file_path = os.path.join(location, (f"{file_name}.txt"))
+    needs_newline = False
+
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+
+            if content and not content.endswith("\n"):
+                needs_newline = True
+
+    with open(file_path, "a", encoding="utf-8") as file:
+        if needs_newline:
+            file.write("\n")
+
+        file.write(f"{item}\n")
+        print(f"{item} been added to {file_name}.txt")
+    
 
 while True:
     now = time.time()
     esp_manager.check_new_port()
 
     if user_command:
-
         reset = False
         text = user_command
         user_command = ""
-        if text == "add.game" and adding_state is None:
-            running_apps = audio.get_apps();
-            known_apps = {exe.lower() for exe in sum(CATEGORIES.values(), [])}
-            not_known_apps =  list(running_apps - known_apps)
-
-            if not not_known_apps:
-                print("lack applications to add")
-
+        
+        if text.startswith("add.") and adding_state is None:
+            category_name = check_category_name(CATEGORIES, text)
+            
+            if category_name:
+                running_apps = audio.get_apps()
+                not_known_apps, adding_state = retrieval_unknown_apps(running_apps, CATEGORIES)
+                if not not_known_apps:
+                    reset = True
             else:
-                for index, app in enumerate(not_known_apps, start=1):
-                    print(f"[{index}] {app}")
-                print("choose app to add")
-                adding_state = "selection_app_to_add"
-
-        elif adding_state == "selection_app_to_add":
-
-            if text.isdigit():
-                num = int(text) - 1
-                if 0 <= num < len(not_known_apps):
-                    selected_app = not_known_apps[num]
-                    print(f"you choose {selected_app} add it to game section Y/N")
-                    adding_state = "confirmation"
-                else:
-                    print(f"invalid number. choose number between 1 to {len(not_known_apps)}")
-            else:
-                print("invalid commadn")
                 reset = True
 
-        elif(adding_state == "confirmation"):
+        elif adding_state == "selection_app_to_add" and text.isdigit():
+            selected_app = choose_from((int(text) - 1), not_known_apps)
 
-            if text.lower() in ["yes", "y"]:
-                CATEGORIES["game"].append(selected_app)
-                with open(game_file_path, "a", encoding="utf-8") as file:
-                    file.write(f"\n{selected_app}\n")
-                    print(f"{selected_app} been added to game")
-                    reset = True
-            elif text.lower() in ["no", "n"]:
-                print("return to main menu")
+            if selected_app is not None:
+                add_to_file_list_txt(category_name ,script_dir ,selected_app)
+                CATEGORIES[category_name].append(selected_app)
                 reset = True
 
         else:
-            print("invalid commadn")
+            print("invalid command")
             reset = True
 
         if reset:
             adding_state = None
             not_known_apps = []
             selected_app = None
-
+            category_name = None
 
     if now - last_scan > 0.5:
         esp_manager.remove_disconnected_ports()
@@ -152,3 +180,5 @@ while True:
     audio.mixer.set_category_volume("game", CATEGORIES["game"], gameVolume)
 
     time.sleep(0.01)
+
+
