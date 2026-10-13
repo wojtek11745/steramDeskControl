@@ -8,15 +8,8 @@ from utils import map_range
 valid_ids = ["ESP32_784c28004f8c"]
 esp_manager = ESPManager(valid_ids)
 audio = AudioController()
-CATEGORIES = {
-    "media": ["discord.exe", "firefox.exe",],
-    "game": [],
-}
-script_dir = os.path.dirname(os.path.abspath(__file__))
-game_file_path = os.path.join(script_dir, "game.txt")
 
-with open(game_file_path, "r", encoding="utf-8") as plik:
-    CATEGORIES["game"] = [line.strip() for line in plik if line.strip()]
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 user_command = ""
 def read_input():
@@ -40,6 +33,26 @@ adding_state = None
 not_known_apps = []
 selected_app = None
 category_name = None
+
+def get_category(location, folder_name):
+    file_folder_path = os.path.join(location, folder_name)
+
+    if not os.path.exists(file_folder_path):
+        os.makedirs(file_folder_path)
+
+    categories = {}
+
+    category_files = os.listdir(file_folder_path)
+
+    for filename in category_files:
+        if filename.endswith(".txt"):
+            name = filename.removesuffix(".txt")    
+            file_path = os.path.join(file_folder_path, filename)
+
+            with open(file_path, "r", encoding="utf-8") as f:
+                categories[name] = [line.strip() for line in f if line.strip()]
+    return categories
+CATEGORIES = get_category(script_dir, "categories")
 
 def check_category_name(CATEGORIES, text):
     category_name = text[4:]
@@ -113,7 +126,8 @@ while True:
             selected_app = choose_from((int(text) - 1), not_known_apps)
 
             if selected_app is not None:
-                add_to_file_list_txt(category_name ,script_dir ,selected_app)
+                path = os.path.join(script_dir, "categories")
+                add_to_file_list_txt(category_name ,path ,selected_app)
                 CATEGORIES[category_name].append(selected_app)
                 reset = True
 
