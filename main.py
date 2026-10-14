@@ -1,6 +1,7 @@
 import time
 import os
 import threading
+import category_manager
 from esp import ESPManager  
 from audio import AudioController
 from utils import map_range
@@ -33,74 +34,7 @@ adding_state = None
 not_known_apps = []
 selected_app = None
 category_name = None
-
-def get_category(location, folder_name):
-    file_folder_path = os.path.join(location, folder_name)
-
-    if not os.path.exists(file_folder_path):
-        os.makedirs(file_folder_path)
-
-    categories = {}
-
-    category_files = os.listdir(file_folder_path)
-
-    for filename in category_files:
-        if filename.endswith(".txt"):
-            name = filename.removesuffix(".txt")    
-            file_path = os.path.join(file_folder_path, filename)
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                categories[name] = [line.strip() for line in f if line.strip()]
-    return categories
-CATEGORIES = get_category(script_dir, "categories")
-
-def check_category_name(CATEGORIES, text):
-    category_name = text[4:]
-
-    if category_name in CATEGORIES:
-        return category_name
-        
-    print("invalid category name")
-    return None
-
-def retrieval_unknown_apps(running_apps, cat):
-    known_apps = {exe.lower() for exe in sum(cat.values(), [])}
-    not_known_apps =  list(running_apps - known_apps)
-
-    if not not_known_apps:
-        print("lack applications to add")
-        return [], None
-
-    for index, app in enumerate(not_known_apps, start=1):
-        print(f"[{index}] {app}")
-    print("choose app to add")
-    return not_known_apps, "selection_app_to_add"
-
-def choose_from(number, items):
-    if 0 <= number < len(items):
-        return items[number]
-    
-    print(f"invalid number. choose number between 1 to {len(items)}")
-    return None
-
-def add_to_file_list_txt(file_name, location, item):
-    file_path = os.path.join(location, (f"{file_name}.txt"))
-    needs_newline = False
-
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as file:
-            content = file.read()
-
-            if content and not content.endswith("\n"):
-                needs_newline = True
-
-    with open(file_path, "a", encoding="utf-8") as file:
-        if needs_newline:
-            file.write("\n")
-
-        file.write(f"{item}\n")
-        print(f"{item} been added to {file_name}.txt")
-    
+CATEGORIES = category_manager.get_category(script_dir, "categories")
 
 while True:
     now = time.time()
@@ -112,22 +46,22 @@ while True:
         user_command = ""
         
         if text.startswith("add.") and adding_state is None:
-            category_name = check_category_name(CATEGORIES, text)
+            category_name = category_manager.check_category_name(CATEGORIES, text)
             
             if category_name:
                 running_apps = audio.get_apps()
-                not_known_apps, adding_state = retrieval_unknown_apps(running_apps, CATEGORIES)
+                not_known_apps, adding_state = category_manager.retrieval_unknown_apps(running_apps, CATEGORIES)
                 if not not_known_apps:
                     reset = True
             else:
                 reset = True
 
         elif adding_state == "selection_app_to_add" and text.isdigit():
-            selected_app = choose_from((int(text) - 1), not_known_apps)
+            selected_app = category_manager.choose_from((int(text) - 1), not_known_apps)
 
             if selected_app is not None:
                 path = os.path.join(script_dir, "categories")
-                add_to_file_list_txt(category_name ,path ,selected_app)
+                category_manager.add_to_file_list_txt(category_name ,path ,selected_app)
                 CATEGORIES[category_name].append(selected_app)
                 reset = True
 
